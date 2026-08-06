@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   clearSession,
   loadSession,
@@ -16,13 +16,16 @@ export function AppHeader() {
   const [session, setSession] = useState<PortalSession | null>(null);
   const router = useRouter();
   const pathname = usePathname();
+  const search = useSearchParams();
   const { t } = useI18n();
   const isHome = pathname === '/';
+  /** Framer (or any host) embeds portal under their chrome — hide Next header */
+  const isEmbed = search.get('embed') === '1';
 
   useEffect(() => {
-    if (isHome) return;
+    if (isHome || isEmbed) return;
     setSession(loadSession());
-  }, [pathname, isHome]);
+  }, [pathname, isHome, isEmbed]);
 
   function logout() {
     const s = loadSession();
@@ -38,7 +41,7 @@ export function AppHeader() {
   }
 
   // Home owns its own nav (Canva layout) — global header off
-  if (isHome) {
+  if (isHome || isEmbed) {
     return null;
   }
 

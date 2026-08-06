@@ -520,6 +520,51 @@ export class ProcessesService {
     return { statusCode: 200, body: certificate };
   }
 
+  /**
+   * Bind (or update) representation EVM wallet on edge process for certificate export.
+   * Not SoT / not mint — MetaMask-style 0x address only.
+   */
+  bindHolderWallet(
+    processId: string,
+    institutionId: string,
+    holderWalletRaw: string,
+  ): CreateResult {
+    const rec = this.byId.get(processId);
+    if (!rec) {
+      return {
+        statusCode: 404,
+        body: { code: 'NOT_FOUND', message: `process not found on edge: ${processId}` },
+      };
+    }
+    if (rec.institutionId.toUpperCase() !== institutionId.toUpperCase()) {
+      return {
+        statusCode: 403,
+        body: { code: 'FORBIDDEN', message: 'process belongs to another institution' },
+      };
+    }
+    const wallet = holderWalletRaw.trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(wallet)) {
+      return {
+        statusCode: 400,
+        body: {
+          code: 'WALLET_INVALID',
+          message: 'holderWallet must be 0x + 40 hex (EVM / MetaMask)',
+        },
+      };
+    }
+    rec.holderWallet = wallet;
+    rec.updatedAt = new Date().toISOString();
+    this.persist();
+    return {
+      statusCode: 200,
+      body: {
+        processId: rec.processId,
+        holderWallet: wallet,
+        message: 'wallet bound on edge for certificate / wallet-compat export (representation only)',
+      },
+    };
+  }
+
   async get(
     processId: string,
     institutionId: string | undefined,
@@ -758,6 +803,10 @@ export class ProcessesService {
     const status = String(body.status ?? edge?.status ?? 'unknown');
     const valuation =
       body.valuation ?? edge?.valuation ?? body.mintAmount ?? undefined;
+    const holderWallet =
+      (body.holderWallet as string | null | undefined) ??
+      (edge?.holderWallet as string | null | undefined) ??
+      null;
     return {
       processId: body.processId ?? processId,
       status,
@@ -766,13 +815,14 @@ export class ProcessesService {
       valuation: valuation != null ? String(valuation) : undefined,
       processType: body.processType ?? edge?.processType,
       institutionId: body.institutionId ?? edge?.institutionId,
+      holderWallet,
       documentPackageHash:
         body.documentPackageHash ?? edge?.documentPackageHash,
       potVerified: body.potVerified ?? body.verified ?? undefined,
       createdAt: body.createdAt ?? edge?.createdAt,
       updatedAt: body.updatedAt ?? edge?.updatedAt,
       public: true,
-      note: 'Read-only public view. Portal does not mint. NodeChain is SoT after Core hand-off.',
+      note: 'Read-only public view. Portal does not mint. NodeChain is SoT after Core hand-off. holderWallet is representation only (not SoT mint).',
     };
   }
 

@@ -27,11 +27,29 @@
 
 Source: [`docs/COMPLETION-TRACK.md`](COMPLETION-TRACK.md).
 
-## Next (owner-driven)
+## Product field phases A–J (owner-driven)
+
+Full sequencing, acceptance, non-goals: **[`PRODUCT-PHASES-A-J.md`](PRODUCT-PHASES-A-J.md)** · Phase A card: [`portal/STABLE-EDGE-A.md`](portal/STABLE-EDGE-A.md)
+
+| Phase | Name |
+|-------|------|
+| A | Stable edge (HTTPS, secrets, no quick tunnel) |
+| B | Two-sided pilot (2 parties / one processId) |
+| C | Trust crypto (QTSP/X.509, mTLS/OIDC) |
+| D | Ops control plane (live process + NodeChain) |
+| E | External audit |
+| F | Bank/PSP sandbox |
+| G | Representation chain (ERC/NFT mirror, non-SoT) |
+| H | Multi-node / quorum ops |
+| I | Field release (runbooks, DR, monitoring) |
+| J | Scale / BFT later (only after A–I) |
+
+## Next (owner-driven) — engineering residuals
 
 | Priority | Item | Doc |
 |----------|------|-----|
 | **P0** | Sign B1 / Canon NodeChain review | `OWNER-REVIEW.md` · reply **`B1 approved`** |
+| **P0** | Phase A stable edge live | `portal/STABLE-EDGE-A.md` |
 | **P1** | External audit engagement | F1 · `EXTERNAL-AUDIT-F1.md` |
 | **P1** | Host cutover + domain | `docs/cutover/` · D8 |
 | **P2** | Quarterly restore drill (prod) · monitoring wire | F5 · F6 |

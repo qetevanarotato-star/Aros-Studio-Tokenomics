@@ -1,32 +1,34 @@
 'use client';
 
-import { FormEvent, useState } from 'react';
+import { FormEvent, Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { apiBase } from '../../lib/auth';
 import { StatusBadge } from '../../components/ui/status-badge';
 import { useI18n } from '../../lib/i18n/context';
 
 /**
  * Public process explorer — no login, no institution key.
+ * Supports deep link: /explore?processId=AST-…
  */
-export default function ExplorePage() {
+function ExplorePageInner() {
   const { t } = useI18n();
-  const [processId, setProcessId] = useState('');
+  const search = useSearchParams();
+  const qProcessId = search.get('processId') ?? search.get('pid') ?? '';
+  const [processId, setProcessId] = useState(qProcessId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<Record<string, unknown> | null>(null);
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  const lookup = useCallback(async (idRaw: string) => {
+    const id = idRaw.trim();
+    if (!id) {
+      setError(t('explore.err.empty'));
+      return;
+    }
     setBusy(true);
     setError(null);
     setData(null);
-    const id = processId.trim();
-    if (!id) {
-      setError(t('explore.err.empty'));
-      setBusy(false);
-      return;
-    }
     try {
       const res = await fetch(
         `${apiBase()}/v1/public/processes/${encodeURIComponent(id)}`,
@@ -41,6 +43,18 @@ export default function ExplorePage() {
     } finally {
       setBusy(false);
     }
+  }, [t]);
+
+  useEffect(() => {
+    if (qProcessId.trim()) {
+      setProcessId(qProcessId);
+      void lookup(qProcessId);
+    }
+  }, [qProcessId, lookup]);
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault();
+    await lookup(processId);
   }
 
   return (
@@ -101,6 +115,12 @@ export default function ExplorePage() {
             )}
           </div>
           <h2 style={{ wordBreak: 'break-all' }}>{String(data.processId ?? processId)}</h2>
+          {data.holderWallet != null && String(data.holderWallet).length > 0 ? (
+            <p className="muted" style={{ marginTop: 0 }}>
+              {t('cert.walletField')}:{' '}
+              <code className="mono">{String(data.holderWallet)}</code>
+            </p>
+          ) : null}
           <pre className="result">{JSON.stringify(data, null, 2)}</pre>
           <div className="actions">
             <Link href={`/nodechain?processId=${encodeURIComponent(String(data.processId ?? processId))}`}>
@@ -112,5 +132,13 @@ export default function ExplorePage() {
         </div>
       )}
     </>
+  );
+}
+
+export default function ExplorePage() {
+  return (
+    <Suspense fallback={<div className="card"><p className="muted">…</p></div>}>
+      <ExplorePageInner />
+    </Suspense>
   );
 }

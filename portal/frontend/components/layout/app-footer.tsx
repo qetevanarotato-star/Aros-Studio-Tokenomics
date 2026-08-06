@@ -1,15 +1,17 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useI18n } from '../../lib/i18n/context';
 
 export function AppFooter() {
   const { t } = useI18n();
   const pathname = usePathname();
+  const search = useSearchParams();
   const isHome = pathname === '/';
+  const isEmbed = search.get('embed') === '1';
 
-  if (isHome) {
+  if (isHome || isEmbed) {
     return null;
   }
 

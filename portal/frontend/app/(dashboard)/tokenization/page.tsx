@@ -17,6 +17,7 @@ import {
   type AssetTypeSummary,
   type EvidenceSlot,
 } from '../../../lib/asset-evidence';
+import { useI18n } from '../../../lib/i18n/context';
 
 function randomIdem(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -69,6 +70,7 @@ type SigVerify = {
  */
 export default function TokenizationWizardPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [step, setStep] = useState(0);
 
   const [assetTypeOptions, setAssetTypeOptions] = useState<AssetTypeSummary[]>(
@@ -489,34 +491,30 @@ export default function TokenizationWizardPage() {
   return (
     <div className="card">
       <p className="muted" style={{ marginTop: 0 }}>
-        <Link href="/dashboard">← Cabinet</Link>
+        <Link href="/dashboard">{t('tok.backCabinet')}</Link>
       </p>
-      <p className="eyebrow">Institutional client · document-first</p>
-      <h1>Tokenize from a signed document package</h1>
-      <p className="lead">
-        Choose the <strong>asset type</strong>, upload the <strong>typed evidence documents</strong>,
-        confirm e-signature, restate only what the package states. Optional bureau enrichment assists
-        confirmation — it does not invent price. AST does not appraise. Portal never mints.
-      </p>
+      <p className="eyebrow">{t('tok.eyebrow')}</p>
+      <h1>{t('tok.h1')}</h1>
+      <p className="lead">{t('tok.lead')}</p>
 
       <ul className="steps">
         <li className={step === 0 ? 'active' : step > 0 ? 'done' : ''}>
-          <span className="n">0</span> Asset type
+          <span className="n">0</span> {t('tok.step.asset')}
         </li>
         <li className={step === 1 ? 'active' : step > 1 ? 'done' : ''}>
-          <span className="n">1</span> Evidence
+          <span className="n">1</span> {t('tok.step.evidence')}
         </li>
         <li className={step === 2 ? 'active' : step > 2 ? 'done' : ''}>
-          <span className="n">2</span> E-signature
+          <span className="n">2</span> {t('tok.step.sign')}
         </li>
         <li className={step === 3 ? 'active' : step > 3 ? 'done' : ''}>
-          <span className="n">3</span> From document
+          <span className="n">3</span> {t('tok.step.fields')}
         </li>
         <li className={step === 4 ? 'active' : step > 4 ? 'done' : ''}>
-          <span className="n">4</span> Enrich
+          <span className="n">4</span> {t('tok.step.enrich')}
         </li>
         <li className={step === 5 ? 'active' : step > 5 ? 'done' : ''}>
-          <span className="n">5</span> Start
+          <span className="n">5</span> {t('tok.step.start')}
         </li>
       </ul>
 
@@ -524,13 +522,9 @@ export default function TokenizationWizardPage() {
         {/* ——— 0. ASSET TYPE ——— */}
         {step === 0 && (
           <>
-            <h2 style={{ marginTop: 0 }}>0 · Select asset type</h2>
-            <p className="muted">
-              Each asset type requires a different set of evidentiary documents. Pick the type that
-              matches the package you will upload. You can change type only by restarting this step
-              (uploads reset).
-            </p>
-            <label htmlFor="assetType0">Asset type</label>
+            <h2 style={{ marginTop: 0 }}>{t('tok.s0.h')}</h2>
+            <p className="muted">{t('tok.s0.p')}</p>
+            <label htmlFor="assetType0">{t('tok.step.asset')}</label>
             <select
               id="assetType0"
               value={assetType}
@@ -559,14 +553,14 @@ export default function TokenizationWizardPage() {
                 </p>
                 <p className="muted">{evidenceDef.description}</p>
                 <p style={{ marginBottom: 0 }}>
-                  <strong>Evidence you will need:</strong>
+                  <strong>{t('tok.s0.need')}</strong>
                 </p>
                 <ul>
                   {evidenceDef.slots.map((s) => (
                     <li key={s.id}>
                       {s.label}{' '}
                       <span className="muted">
-                        ({s.required ? 'required' : 'optional'}) — {s.purpose}
+                        ({s.required ? t('common.required') : t('common.optional')}) — {s.purpose}
                       </span>
                     </li>
                   ))}
@@ -583,7 +577,7 @@ export default function TokenizationWizardPage() {
                   setStep(1);
                 }}
               >
-                Continue → evidence package
+                {t('tok.s0.next')}
               </button>
             </div>
           </>
@@ -592,16 +586,18 @@ export default function TokenizationWizardPage() {
         {/* ——— 1. TYPED EVIDENCE ——— */}
         {step === 1 && (
           <>
-            <h2 style={{ marginTop: 0 }}>1 · Upload evidence for {evidenceDef?.label ?? assetType}</h2>
-            <p className="muted">
-              Fill each slot with the matching institutional document. Required slots must not be
-              empty. All files become one package fingerprint (SHA-256).
-            </p>
+            <h2 style={{ marginTop: 0 }}>
+              {t('tok.s1.h')}
+              {evidenceDef?.label ? ` · ${evidenceDef.label}` : ''}
+            </h2>
+            <p className="muted">{t('tok.s1.p')}</p>
             {slots.map((s) => (
               <div key={s.id} className="card flat" style={{ marginBottom: '0.75rem' }}>
                 <label htmlFor={`slot-${s.id}`}>
                   {s.label}{' '}
-                  <span className="muted">{s.required ? '(required)' : '(optional)'}</span>
+                  <span className="muted">
+                    ({s.required ? t('common.required') : t('common.optional')})
+                  </span>
                 </label>
                 <p className="muted" style={{ margin: '0.25rem 0 0.5rem', fontSize: '0.85rem' }}>
                   {s.purpose}
@@ -625,25 +621,22 @@ export default function TokenizationWizardPage() {
                 )}
               </div>
             ))}
-            {hashBusy && <p className="muted">Fingerprinting package…</p>}
+            {hashBusy && <p className="muted">{t('tok.s1.hashing')}</p>}
             {fileMeta && <p className="ok">{fileMeta}</p>}
             {documentPackageHash && (
               <>
-                <label>Package fingerprint (SHA-256)</label>
+                <label>{t('tok.s1.fingerprint')}</label>
                 <input className="mono" readOnly value={documentPackageHash} />
               </>
             )}
-            <div className="callout">
-              Edge keeps the package hash, not a second NodeChain. Economic mint happens only on
-              Core after PoT.
-            </div>
+            <div className="callout">{t('tok.s1.callout')}</div>
             <div className="actions">
               <button
                 type="button"
                 className="secondary"
                 onClick={() => setStep(0)}
               >
-                Back
+                {t('common.back')}
               </button>
               <button
                 type="button"
@@ -651,7 +644,7 @@ export default function TokenizationWizardPage() {
                 disabled={!step1Ok}
                 onClick={() => setStep(2)}
               >
-                Continue → e-signature
+                {t('tok.s1.next')}
               </button>
             </div>
           </>
@@ -660,15 +653,11 @@ export default function TokenizationWizardPage() {
         {/* ——— 2. SIGNATURE ——— */}
         {step === 2 && (
           <>
-            <h2 style={{ marginTop: 0 }}>2 · Confirm electronic signature</h2>
-            <p className="muted">
-              Tokenization may proceed only after signature confirmation. Use institutional
-              attestation (pilot) or cryptographic X.509 detached verification (D4). National QTSP
-              profiles remain residual.
-            </p>
+            <h2 style={{ marginTop: 0 }}>{t('tok.s2.h')}</h2>
+            <p className="muted">{t('tok.s2.p')}</p>
             <div className="card flat" style={{ marginBottom: '1rem' }}>
               <p style={{ margin: 0 }}>
-                <strong>Package:</strong>{' '}
+                <strong>{t('tok.s2.package')}</strong>{' '}
                 {files.length ? files.map((f) => f.name).join(', ') : '—'}
               </p>
               <p className="muted mono" style={{ margin: '0.35rem 0 0', fontSize: '0.8rem' }}>
@@ -684,9 +673,9 @@ export default function TokenizationWizardPage() {
                   setSigVerify(null);
                 }}
               />
-              Qualified electronic signature is present and binds this document (required)
+              {t('tok.s2.checkbox')}
             </label>
-            <label htmlFor="sigMode">Verification mode</label>
+            <label htmlFor="sigMode">{t('tok.s2.mode')}</label>
             <select
               id="sigMode"
               value={sigMode}
@@ -695,8 +684,8 @@ export default function TokenizationWizardPage() {
                 setSigVerify(null);
               }}
             >
-              <option value="institutional_attestation">Institutional attestation (pilot v1)</option>
-              <option value="x509_detached">X.509 detached (D4 crypto)</option>
+              <option value="institutional_attestation">{t('tok.s2.mode.attest')}</option>
+              <option value="x509_detached">{t('tok.s2.mode.x509')}</option>
             </select>
             <label htmlFor="signer">Signer / seal id (optional)</label>
             <input
@@ -756,7 +745,7 @@ export default function TokenizationWizardPage() {
                   setSigVerify(null);
                 }}
               >
-                Back
+                {t('common.back')}
               </button>
               <button
                 type="button"
@@ -772,7 +761,7 @@ export default function TokenizationWizardPage() {
                 }
                 onClick={() => void confirmSignature()}
               >
-                {sigBusy ? 'Confirming…' : 'Confirm signature → fields'}
+                {sigBusy ? '…' : t('tok.s2.next')}
               </button>
             </div>
           </>
@@ -781,7 +770,7 @@ export default function TokenizationWizardPage() {
         {/* ——— 3. FIELDS FROM DOCUMENT (not free invention) ——— */}
         {step === 3 && (
           <>
-            <h2 style={{ marginTop: 0 }}>3 · Data as stated in the document</h2>
+            <h2 style={{ marginTop: 0 }}>{t('tok.s3.h')}</h2>
             {sigVerify?.verified && (
               <div className="banner ok">
                 Signature confirmed · mode{' '}
@@ -974,7 +963,7 @@ export default function TokenizationWizardPage() {
 
             <div className="actions">
               <button type="button" className="secondary" onClick={() => setStep(2)}>
-                Back
+                {t('common.back')}
               </button>
               <button
                 type="button"
@@ -982,7 +971,7 @@ export default function TokenizationWizardPage() {
                 disabled={!step3Ok}
                 onClick={() => setStep(4)}
               >
-                Continue → enrichment
+                {t('tok.s3.next')}
               </button>
             </div>
           </>
@@ -991,7 +980,7 @@ export default function TokenizationWizardPage() {
         {/* ——— 4. ENRICHMENT (bureau signals) ——— */}
         {step === 4 && (
           <>
-            <h2 style={{ marginTop: 0 }}>4 · Enrich confirmation (optional bureau)</h2>
+            <h2 style={{ marginTop: 0 }}>{t('tok.s4.h')}</h2>
             <p className="muted">
               Optional check against an enrichment gateway (mock by default; live bureau such as a
               credit/asset data provider via <code>AST_ENRICHMENT_URL</code>). Signals help you
@@ -1058,7 +1047,7 @@ export default function TokenizationWizardPage() {
             )}
             <div className="actions">
               <button type="button" className="secondary" onClick={() => setStep(3)}>
-                Back
+                {t('common.back')}
               </button>
               <button
                 type="button"
@@ -1066,7 +1055,7 @@ export default function TokenizationWizardPage() {
                 disabled={!step4Ok}
                 onClick={() => setStep(5)}
               >
-                Continue → start
+                {t('tok.s4.next')}
               </button>
             </div>
           </>
@@ -1075,7 +1064,7 @@ export default function TokenizationWizardPage() {
         {/* ——— 5. START ——— */}
         {step === 5 && (
           <>
-            <h2 style={{ marginTop: 0 }}>5 · Start tokenization</h2>
+            <h2 style={{ marginTop: 0 }}>{t('tok.s5.h')}</h2>
             <div className="card flat">
               <p style={{ marginTop: 0 }}>
                 <strong>Asset type:</strong> {evidenceDef?.label ?? assetType}
@@ -1127,10 +1116,10 @@ export default function TokenizationWizardPage() {
             />
             <div className="actions">
               <button type="button" className="secondary" onClick={() => setStep(4)}>
-                Back
+                {t('common.back')}
               </button>
               <button className="primary" type="submit" disabled={!canSubmit || busy}>
-                {busy ? 'Starting…' : 'Start tokenization process'}
+                {busy ? t('tok.s5.busy') : t('tok.s5.submit')}
               </button>
             </div>
           </>

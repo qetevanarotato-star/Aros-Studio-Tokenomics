@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
+import { Suspense } from 'react';
 import { Inter } from 'next/font/google';
 import '../styles/globals.css';
 import { AppHeader } from '../components/layout/app-header';
@@ -35,9 +36,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className={inter.className}>
         <Providers>
           <div className="shell">
-            <AppHeader />
+            <Suspense fallback={null}>
+              <AppHeader />
+            </Suspense>
             <main className="shell-main">{children}</main>
-            <AppFooter />
+            <Suspense fallback={null}>
+              <AppFooter />
+            </Suspense>
           </div>
         </Providers>
       </body>

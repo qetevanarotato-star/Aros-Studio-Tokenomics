@@ -128,6 +128,27 @@ export class ProcessesController {
     return result.body;
   }
 
+  /**
+   * Bind EVM wallet (0x…) to process for certificate / wallet-compat QR (representation only).
+   */
+  @Post(':processId/bind-wallet')
+  bindWallet(
+    @Param('processId') processId: string,
+    @Body() body: { holderWallet?: string },
+    @Headers('x-session-id') sessionId: string | undefined,
+  ) {
+    const s = this.requireSession(sessionId);
+    const result = this.processes.bindHolderWallet(
+      processId,
+      s.institutionId,
+      body.holderWallet ?? '',
+    );
+    if (result.statusCode >= 400) {
+      throw new HttpException(result.body, result.statusCode);
+    }
+    return result.body;
+  }
+
   @Post(':processId/documents')
   async attachDocuments(
     @Param('processId') processId: string,

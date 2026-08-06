@@ -48,7 +48,15 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    setLocaleState(readStoredLocale());
+    // Remote demo: /login?lang=ru | ?lang=ka | ?lang=en
+    let fromUrl: Locale | null = null;
+    try {
+      const q = new URLSearchParams(window.location.search).get('lang');
+      if (isLocale(q)) fromUrl = q;
+    } catch {
+      /* ignore */
+    }
+    setLocaleState(fromUrl ?? readStoredLocale());
     setReady(true);
   }, []);
 

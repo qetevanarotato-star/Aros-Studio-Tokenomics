@@ -13,6 +13,7 @@ import {
   type ProgressStep,
 } from '../../../../lib/status';
 import { buildVerifyUrl, certificatePrintHtml } from '../../../../lib/certificate-print';
+import { useI18n } from '../../../../lib/i18n/context';
 
 const POLL_MS = 3000;
 const POLL_MAX = 60;
@@ -22,6 +23,7 @@ function ProcessStatusPageInner() {
   const search = useSearchParams();
   const processId = decodeURIComponent(String(params.processId ?? ''));
   const router = useRouter();
+  const { t } = useI18n();
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [cert, setCert] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,9 @@ function ProcessStatusPageInner() {
   const [pollTick, setPollTick] = useState(0);
   const [secondsToNext, setSecondsToNext] = useState(Math.floor(POLL_MS / 1000));
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [walletInput, setWalletInput] = useState('');
+  const [walletBusy, setWalletBusy] = useState(false);
+  const [walletMsg, setWalletMsg] = useState<string | null>(null);
   const wantCert = search.get('certificate') === '1';
 
   const verifyUrl = useMemo(
@@ -271,17 +276,96 @@ function ProcessStatusPageInner() {
     w.document.close();
   }
 
+  function isValidEvm(addr: string): boolean {
+    return /^0x[a-fA-F0-9]{40}$/.test(addr.trim());
+  }
+
+  async function bindWallet(address: string) {
+    const s = loadSession();
+    if (!s) {
+      router.replace('/login');
+      return;
+    }
+    const wallet = address.trim();
+    if (!isValidEvm(wallet)) {
+      setWalletMsg(t('cert.walletInvalid'));
+      return;
+    }
+    setWalletBusy(true);
+    setWalletMsg(null);
+    setError(null);
+    try {
+      const res = await portalFetch(
+        `/v1/processes/${encodeURIComponent(processId)}/bind-wallet`,
+        {
+          method: 'POST',
+          sessionId: s.sessionId,
+          body: JSON.stringify({ holderWallet: wallet }),
+        },
+      );
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message ?? res.statusText);
+      setWalletInput(wallet);
+      setWalletMsg(t('cert.walletBound'));
+      await load({ quiet: true });
+    } catch (e) {
+      setWalletMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setWalletBusy(false);
+    }
+  }
+
+  async function connectMetaMask() {
+    setWalletMsg(null);
+    const eth = (window as unknown as { ethereum?: { request: (a: { method: string }) => Promise<string[]> } })
+      .ethereum;
+    if (!eth?.request) {
+      setWalletMsg(t('cert.walletNoMm'));
+      return;
+    }
+    try {
+      const accounts = await eth.request({ method: 'eth_requestAccounts' });
+      const addr = accounts?.[0];
+      if (!addr) {
+        setWalletMsg(t('cert.walletNoMm'));
+        return;
+      }
+      setWalletInput(addr);
+      await bindWallet(addr);
+    } catch (e) {
+      setWalletMsg(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  function openPublicCertificate() {
+    const path =
+      cert?.publicLookupPath != null
+        ? String(cert.publicLookupPath)
+        : `/explore?processId=${encodeURIComponent(processId)}`;
+    window.open(path, '_blank', 'noopener,noreferrer');
+  }
+
+  function openWalletUri() {
+    const wc = cert?.walletCompat as { eip681?: string | null; holderWallet?: string | null } | undefined;
+    const uri = wc?.eip681 || (wc?.holderWallet ? `ethereum:${wc.holderWallet}` : null);
+    if (!uri) {
+      setWalletMsg(t('cert.walletNeedBind'));
+      return;
+    }
+    window.location.href = uri;
+  }
+
   return (
     <div className="card">
       <p className="muted" style={{ marginTop: 0 }}>
-        <Link href="/dashboard">← Cabinet</Link>
+        <Link href="/dashboard">{t('tok.backCabinet')}</Link>
         {' · '}
-        <Link href="/tokenization">New process</Link>
+        <Link href="/tokenization">{t('cert.newProcess')}</Link>
       </p>
 
       {wantCert && (
         <div className="banner ok" style={{ marginBottom: '1rem' }}>
-          Process started. Watch the live pipeline below — it updates automatically.
+          {t('cert.banner')}
         </div>
       )}
 
@@ -296,14 +380,13 @@ function ProcessStatusPageInner() {
       >
         <div>
           <p className="eyebrow" style={{ margin: 0 }}>
-            Live process · unique code
+            {t('cert.eyebrow')}
           </p>
           <h1 style={{ wordBreak: 'break-all', marginTop: '0.25rem' }}>
             <code style={{ fontSize: '0.9em' }}>{processId}</code>
           </h1>
           <p className="muted" style={{ margin: '0.35rem 0 0', fontSize: '0.88rem' }}>
-            This code is unique for this process (not your login salt). Copy it for NodeChain /
-            public lookup.
+            {t('cert.codeHint')}
           </p>
         </div>
         <div className="actions">
@@ -313,12 +396,12 @@ function ProcessStatusPageInner() {
             disabled={refreshing}
             onClick={() => void load({ quiet: true })}
           >
-            {refreshing ? 'Updating…' : 'Refresh now'}
+            {refreshing ? t('cert.refreshing') : t('cert.refresh')}
           </button>
         </div>
       </div>
 
-      {initialLoading && !data && <p className="muted">Loading process…</p>}
+      {initialLoading && !data && <p className="muted">{t('cert.loading')}</p>}
       {error && <p className="err">{error}</p>}
 
       {data && (
@@ -336,41 +419,41 @@ function ProcessStatusPageInner() {
             >
               <StatusBadge status={status} />
               <span className={`badge ${source === 'core' || submitted ? 'ok' : 'warn'}`}>
-                {source === 'core' || submitted ? 'Core path' : 'Edge only'}
+                {source === 'core' || submitted ? t('cert.corePath') : t('cert.edgeOnly')}
               </span>
-              {refreshing && <span className="badge info">refreshing…</span>}
+              {refreshing && <span className="badge info">{t('cert.refreshing')}</span>}
               {!finished && (
                 <span className="muted" style={{ fontSize: '0.85rem' }}>
-                  Auto-update in {secondsToNext}s
+                  {t('cert.autoIn')} {secondsToNext}s
                 </span>
               )}
               {lastRefreshAt && (
                 <span className="muted" style={{ fontSize: '0.8rem' }}>
-                  Last update {new Date(lastRefreshAt).toLocaleTimeString()}
+                  {t('cert.lastUpdate')} {new Date(lastRefreshAt).toLocaleTimeString()}
                 </span>
               )}
             </div>
 
             <p style={{ margin: '0 0 0.5rem', fontWeight: 650 }}>{liveMessage}</p>
             <p className="muted" style={{ margin: '0 0 0.75rem', fontSize: '0.9rem' }}>
-              Status: <strong>{statusLabel(status)}</strong>
+              <strong>{statusLabel(status)}</strong>
               {progress?.currentTitle ? (
                 <>
                   {' '}
-                  · Now: <strong>{progress.currentTitle}</strong>
+                  · <strong>{progress.currentTitle}</strong>
                 </>
               ) : null}
             </p>
 
-            <div className="progress-track" aria-label={`Progress ${percent}%`}>
+            <div className="progress-track" aria-label={`${t('cert.progress')} ${percent}%`}>
               <div className="progress-fill" style={{ width: `${percent}%` }} />
             </div>
             <p className="muted" style={{ margin: '0.4rem 0 0', fontSize: '0.85rem' }}>
-              Progress <strong>{percent}%</strong>
+              {t('cert.progress')} <strong>{percent}%</strong>
               {mintAmountLive != null ? (
                 <>
                   {' '}
-                  · Mint <strong className="mono">{String(mintAmountLive)}</strong> ARO
+                  · {t('cert.mint')} <strong className="mono">{String(mintAmountLive)}</strong> ARO
                 </>
               ) : null}
             </p>
@@ -500,12 +583,13 @@ function ProcessStatusPageInner() {
         <section className="card flat nc-node-detail cert-preview" style={{ marginTop: '1.25rem' }}>
           <div className="nc-node-detail-head">
             <div>
-              <p className="eyebrow">Exit document</p>
+              <p className="eyebrow">{t('cert.certificate')}</p>
               <h2 style={{ margin: '0.2rem 0' }}>
                 {String(cert.title ?? 'Digitization certificate')}
               </h2>
               <p className="muted" style={{ margin: 0 }}>
-                Technical certificate with QR for public verification (print / Save as PDF).
+                Open the certificate, verify publicly, and bind an EVM wallet (MetaMask) for
+                wallet-compatible export. Binding is representation only — not on-chain mint.
               </p>
             </div>
             {qrDataUrl && (
@@ -543,34 +627,98 @@ function ProcessStatusPageInner() {
             QR → <code className="mono" style={{ fontSize: '0.75rem' }}>{verifyUrl}</code>
             <br />
             PoT: {potDone ? 'verified' : 'pending'} · Hand-off: {submitted ? 'yes' : 'no'}
+            <br />
+            {t('cert.walletField')}:{' '}
+            <code className="mono">
+              {String(
+                cert.holderWallet ??
+                  (cert.walletCompat as { holderWallet?: string } | undefined)?.holderWallet ??
+                  t('cert.walletNotBound'),
+              )}
+            </code>
           </p>
-          <div className="actions">
-            <button
-              type="button"
-              className="primary"
-              onClick={() => void printCertificate()}
-            >
-              Print / PDF certificate (with QR)
+
+          {/* Open certificate */}
+          <div className="actions" style={{ marginBottom: '0.85rem' }}>
+            <button type="button" className="primary" onClick={() => void printCertificate()}>
+              {t('cert.openPrint')}
+            </button>
+            <button type="button" className="secondary" onClick={openPublicCertificate}>
+              {t('cert.openPublic')}
             </button>
             <button type="button" className="secondary" onClick={downloadCertificateJson}>
-              Download JSON
+              {t('cert.downloadJson')}
             </button>
             {(cert.walletCompat as { erc721Metadata?: unknown } | undefined)?.erc721Metadata ? (
               <button type="button" className="secondary" onClick={downloadWalletMetadata}>
-                Wallet metadata (ERC-721 style)
+                {t('cert.walletMeta')}
               </button>
             ) : null}
-            <Link href={cert.publicLookupPath ? String(cert.publicLookupPath) : `/explore`}>
-              <button type="button" className="ghost">
-                Open public lookup
-              </button>
-            </Link>
           </div>
-          <p className="muted" style={{ fontSize: '0.82rem', marginTop: '0.75rem', marginBottom: 0 }}>
-            <strong>Wallet-compatible:</strong> QR + JSON use standards wallets/dApps understand
-            (HTTPS verify, optional EIP-681 wallet bind, ERC-721 metadata). On-chain ERC-20/721 mint
-            is a representation adapter — NodeChain remains SoT.
-          </p>
+
+          {/* Bind crypto wallet */}
+          <div
+            className="card flat"
+            style={{ marginTop: '0.5rem', marginBottom: 0, background: 'var(--bg2)' }}
+          >
+            <h3 style={{ margin: '0 0 0.35rem', fontSize: '1rem' }}>{t('cert.walletTitle')}</h3>
+            <p className="muted" style={{ margin: '0 0 0.75rem', fontSize: '0.85rem' }}>
+              {t('cert.walletLead')}
+            </p>
+            <label htmlFor="bind-wallet">{t('cert.walletLabel')}</label>
+            <input
+              id="bind-wallet"
+              className="mono"
+              value={
+                walletInput ||
+                String(
+                  cert.holderWallet ??
+                    (cert.walletCompat as { holderWallet?: string } | undefined)?.holderWallet ??
+                    '',
+                )
+              }
+              onChange={(e) => setWalletInput(e.target.value)}
+              placeholder={t('cert.walletPlaceholder')}
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <div className="actions">
+              <button
+                type="button"
+                className="primary"
+                disabled={walletBusy}
+                onClick={() => void connectMetaMask()}
+              >
+                {walletBusy ? '…' : t('cert.walletConnect')}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                disabled={walletBusy}
+                onClick={() =>
+                  void bindWallet(
+                    walletInput ||
+                      String(
+                        cert.holderWallet ??
+                          (cert.walletCompat as { holderWallet?: string } | undefined)
+                            ?.holderWallet ??
+                          '',
+                      ),
+                  )
+                }
+              >
+                {walletBusy ? '…' : t('cert.walletBind')}
+              </button>
+              <button type="button" className="ghost" onClick={openWalletUri}>
+                {t('cert.walletOpenUri')}
+              </button>
+            </div>
+            {walletMsg ? (
+              <p className="muted" style={{ margin: '0.65rem 0 0', fontSize: '0.85rem' }}>
+                {walletMsg}
+              </p>
+            ) : null}
+          </div>
         </section>
       )}
 
