@@ -37,7 +37,12 @@ function ProcessStatusPageInner() {
   const [walletInput, setWalletInput] = useState('');
   const [walletBusy, setWalletBusy] = useState(false);
   const [walletMsg, setWalletMsg] = useState<string | null>(null);
+  const [inviteId, setInviteId] = useState('COUNTER');
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
   const wantCert = search.get('certificate') === '1';
+  const session = typeof window !== 'undefined' ? loadSession() : null;
+  const sessionRole = session?.role ?? 'institution';
 
   const verifyUrl = useMemo(
     () =>
@@ -355,12 +360,79 @@ function ProcessStatusPageInner() {
     window.location.href = uri;
   }
 
+  async function inviteCounterparty() {
+    const s = loadSession();
+    if (!s) {
+      router.replace('/login');
+      return;
+    }
+    const id = inviteId.trim().toUpperCase();
+    if (!id) {
+      setInviteMsg(t('twosided.inviteEmpty'));
+      return;
+    }
+    setInviteBusy(true);
+    setInviteMsg(null);
+    try {
+      const res = await portalFetch(
+        `/v1/processes/${encodeURIComponent(processId)}/invite-counterparty`,
+        {
+          method: 'POST',
+          sessionId: s.sessionId,
+          body: JSON.stringify({ counterpartyInstitutionId: id }),
+        },
+      );
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.message ?? res.statusText);
+      setInviteMsg(t('twosided.inviteOk'));
+      await load({ quiet: true });
+    } catch (e) {
+      setInviteMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setInviteBusy(false);
+    }
+  }
+
+  const access = data?.access as
+    | {
+        relation?: string;
+        owner?: string;
+        counterpartyIds?: string[];
+        role?: string;
+      }
+    | undefined;
+  const edgeCp =
+    (data?.edge as { counterpartyIds?: string[]; fiatEvidence?: unknown[] } | undefined)
+      ?.counterpartyIds ??
+    (data?.counterpartyIds as string[] | undefined) ??
+    access?.counterpartyIds ??
+    [];
+  const fiatEvidence =
+    (data?.edge as { fiatEvidence?: unknown[] } | undefined)?.fiatEvidence ??
+    (data?.fiatEvidence as unknown[] | undefined) ??
+    [];
+  const canInvite =
+    sessionRole === 'institution' ||
+    sessionRole === 'operator' ||
+    access?.relation === 'owner';
+
   return (
     <div className="card">
       <p className="muted" style={{ marginTop: 0 }}>
         <Link href="/dashboard">{t('tok.backCabinet')}</Link>
         {' · '}
-        <Link href="/tokenization">{t('cert.newProcess')}</Link>
+        {(sessionRole === 'institution' || sessionRole === 'operator' || !sessionRole) && (
+          <>
+            <Link href="/tokenization">{t('cert.newProcess')}</Link>
+            {' · '}
+          </>
+        )}
+        {sessionRole === 'operator' && (
+          <>
+            <Link href="/ops">{t('nav.ops')}</Link>
+            {' · '}
+          </>
+        )}
       </p>
 
       {wantCert && (
@@ -406,6 +478,66 @@ function ProcessStatusPageInner() {
 
       {data && (
         <>
+          {/* Two-sided parties */}
+          <div className="card flat" style={{ marginBottom: '1rem', background: 'var(--bg2)' }}>
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>{t('twosided.title')}</h3>
+            <p className="muted" style={{ margin: '0 0 0.5rem', fontSize: '0.85rem' }}>
+              {t('twosided.relation')}:{' '}
+              <strong>{access?.relation ?? '—'}</strong>
+              {' · '}
+              {t('twosided.owner')}:{' '}
+              <code className="mono">
+                {String(access?.owner ?? data.institutionId ?? '—')}
+              </code>
+              {' · '}
+              {t('twosided.counterparties')}:{' '}
+              <code className="mono">
+                {edgeCp.length ? edgeCp.join(', ') : t('twosided.none')}
+              </code>
+            </p>
+            {canInvite ? (
+              <div className="actions" style={{ alignItems: 'flex-end' }}>
+                <div style={{ flex: 1, minWidth: 160 }}>
+                  <label htmlFor="invite-cp">{t('twosided.inviteLabel')}</label>
+                  <input
+                    id="invite-cp"
+                    className="mono"
+                    value={inviteId}
+                    onChange={(e) => setInviteId(e.target.value)}
+                    placeholder="COUNTER"
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={inviteBusy}
+                  onClick={() => void inviteCounterparty()}
+                >
+                  {inviteBusy ? '…' : t('twosided.inviteBtn')}
+                </button>
+              </div>
+            ) : (
+              <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
+                {t('twosided.viewerNote')}
+              </p>
+            )}
+            {inviteMsg ? (
+              <p className="muted" style={{ margin: '0.5rem 0 0', fontSize: '0.85rem' }}>
+                {inviteMsg}
+              </p>
+            ) : null}
+            {fiatEvidence.length > 0 ? (
+              <div style={{ marginTop: '0.75rem' }}>
+                <div className="muted" style={{ fontSize: '0.85rem' }}>
+                  {t('twosided.fiat')}
+                </div>
+                <pre className="result" style={{ fontSize: '0.75rem', maxHeight: 120 }}>
+                  {JSON.stringify(fiatEvidence, null, 2)}
+                </pre>
+              </div>
+            ) : null}
+          </div>
+
           {/* Live status strip */}
           <div className="card flat" style={{ marginBottom: '1rem' }}>
             <div

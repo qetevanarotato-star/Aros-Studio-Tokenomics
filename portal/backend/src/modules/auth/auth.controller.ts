@@ -30,6 +30,7 @@ export class AuthController {
       institutionId: r.session.institutionId,
       displayName: r.session.displayName,
       expiresAt: r.session.expiresAt,
+      role: r.session.role,
       mode: 'password',
     };
   }
@@ -46,6 +47,7 @@ export class AuthController {
       institutionId: r.session.institutionId,
       displayName: r.session.displayName,
       expiresAt: r.session.expiresAt,
+      role: r.session.role,
       mode: 'mtls',
       subject: r.subject,
     };
@@ -63,6 +65,7 @@ export class AuthController {
       institutionId: r.session.institutionId,
       displayName: r.session.displayName,
       expiresAt: r.session.expiresAt,
+      role: r.session.role,
       mode: 'oidc',
     };
   }
@@ -76,16 +79,22 @@ export class AuthController {
         401,
       );
     }
+    const role = s.role ?? 'institution';
     return {
       institutionId: s.institutionId,
       displayName: s.displayName,
       expiresAt: s.expiresAt,
       sessionId: s.sessionId,
+      role,
       product: 'Aros Studio Tokenomics (AST) Institutional Portal',
       capabilities: {
-        primaryTokenization: true,
-        documentHash: true,
-        coreHandOff: true,
+        primaryTokenization: role === 'institution' || role === 'operator',
+        documentHash: role === 'institution' || role === 'operator',
+        coreHandOff: role === 'institution' || role === 'operator',
+        inviteCounterparty: role === 'institution' || role === 'operator',
+        opsConsole: role === 'operator',
+        holderView: role === 'holder',
+        counterpartyView: role === 'counterparty',
         mintOnEdge: false,
       },
     };

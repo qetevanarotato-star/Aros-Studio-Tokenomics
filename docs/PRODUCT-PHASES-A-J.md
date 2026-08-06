@@ -169,16 +169,16 @@ Prefer after **A+C+D** so auditors see real deploy and trust path.
 
 | Phase | Status | Evidence / date | Owner note |
 |-------|--------|-----------------|------------|
-| A Stable edge | **Open** (package ready) | | |
-| B Two-sided pilot | Open | | |
-| C Trust crypto | Open (D4/D6 residual) | | |
-| D Ops control plane | Open (partial UI exists) | | |
-| E External audit | Open (prep ready) | | |
-| F Bank/PSP sandbox | Open | | |
-| G Representation chain | Open (wallet + view package) | | |
-| H Multi-node / quorum | Open (core capable; field residual) | | |
-| I Field release | Open | | |
-| J Scale / BFT | Deferred | | |
+| A Stable edge | **Open** (package ready; host residual) | `portal/STABLE-EDGE-A.md` | VPS/DNS owner |
+| B Two-sided pilot | **Local implemented** (2026-08-06) | `portal/TWO-SIDED-PILOT-B.md` · invite API + roles | No host needed |
+| C Trust crypto | Open (D4/D6 residual) | fixtures only | QTSP owner |
+| D Ops control plane | **Local implemented** (2026-08-06) | `/ops` · `GET /v1/ops/overview` | Operator role |
+| E External audit | Open (prep ready) | | Firm engagement |
+| F Bank/PSP sandbox | **Local implemented** (2026-08-06) | `POST /v1/sandbox/bank/webhook` | Real bank residual |
+| G Representation chain | Partial (wallet bind + metadata) | `WALLET-COMPAT.md` | On-chain deploy residual |
+| H Multi-node / quorum | Open (core capable; field residual) | | Standing nodes |
+| I Field release | Open | | After A+E |
+| J Scale / BFT | Deferred | | After A–I |
 
 Optional chat marks: `A stable edge live` · `B two-sided pilot` · `E audit engaged` · etc. (no secrets in chat).
 

@@ -104,8 +104,13 @@ export default function LoginPage() {
         institutionId: data.institutionId,
         displayName: data.displayName,
         expiresAt: data.expiresAt,
+        role: data.role ?? 'institution',
       });
-      router.push('/dashboard');
+      if (data.role === 'operator') {
+        router.push('/ops');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       void probeStack();

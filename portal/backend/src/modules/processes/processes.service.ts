@@ -64,13 +64,29 @@ export class ProcessesService {
     institutionId: string,
     opts?: { status?: string; limit?: number },
   ): ProcessRecord[] {
+    return this.listForActor(institutionId, 'institution', opts);
+  }
+
+  /**
+   * Two-sided visibility:
+   * - operator → all edge processes
+   * - holder → holderId matches account id
+   * - else → owner institutionId OR counterpartyIds includes account
+   */
+  listForActor(
+    institutionId: string,
+    role: string,
+    opts?: { status?: string; limit?: number },
+  ): ProcessRecord[] {
     const inst = institutionId.toUpperCase();
-    let rows = [...this.byId.values()]
-      .filter((r) => r.institutionId.toUpperCase() === inst)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const r = (role || 'institution').toLowerCase();
+    let rows = [...this.byId.values()].filter((rec) =>
+      this.canAccessRecord(rec, inst, r),
+    );
+    rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     if (opts?.status?.trim()) {
       const st = opts.status.trim().toLowerCase();
-      rows = rows.filter((r) => r.status.toLowerCase() === st);
+      rows = rows.filter((row) => row.status.toLowerCase() === st);
     }
     if (opts?.limit && opts.limit > 0) {
       rows = rows.slice(0, opts.limit);
@@ -78,22 +94,179 @@ export class ProcessesService {
     return rows;
   }
 
-  /** Dashboard KPIs for the institution (edge-tracked only). */
-  statsForInstitution(institutionId: string): {
+  canAccessRecord(
+    rec: ProcessRecord,
+    institutionId: string,
+    role: string,
+  ): boolean {
+    const inst = institutionId.toUpperCase();
+    const r = (role || 'institution').toLowerCase();
+    if (r === 'operator') return true;
+    if (rec.institutionId.toUpperCase() === inst) return true;
+    const cps = (rec.counterpartyIds ?? []).map((x) => x.toUpperCase());
+    if (cps.includes(inst)) return true;
+    if (r === 'holder' && rec.holderId.toUpperCase() === inst) return true;
+    return false;
+  }
+
+  assertAccess(
+    processId: string,
+    institutionId: string,
+    role: string,
+  ): { ok: true; rec: ProcessRecord } | { ok: false; statusCode: number; body: Record<string, unknown> } {
+    const rec = this.byId.get(processId);
+    if (!rec) {
+      return {
+        ok: false,
+        statusCode: 404,
+        body: { code: 'NOT_FOUND', message: `process not found on edge: ${processId}` },
+      };
+    }
+    if (!this.canAccessRecord(rec, institutionId, role)) {
+      return {
+        ok: false,
+        statusCode: 403,
+        body: { code: 'FORBIDDEN', message: 'process not visible to this party' },
+      };
+    }
+    return { ok: true, rec };
+  }
+
+  /**
+   * Invite a second institution onto the process (two-sided pilot).
+   * Owner only (or operator).
+   */
+  inviteCounterparty(
+    processId: string,
+    ownerInstitutionId: string,
+    role: string,
+    counterpartyInstitutionId: string,
+    isAllowlisted: (id: string) => boolean,
+  ): CreateResult {
+    const rec = this.byId.get(processId);
+    if (!rec) {
+      return {
+        statusCode: 404,
+        body: { code: 'NOT_FOUND', message: `process not found: ${processId}` },
+      };
+    }
+    const owner = ownerInstitutionId.toUpperCase();
+    const r = (role || 'institution').toLowerCase();
+    if (r !== 'operator' && rec.institutionId.toUpperCase() !== owner) {
+      return {
+        statusCode: 403,
+        body: { code: 'FORBIDDEN', message: 'only process owner (or operator) can invite' },
+      };
+    }
+    const cp = counterpartyInstitutionId.trim().toUpperCase();
+    if (!cp) {
+      return {
+        statusCode: 400,
+        body: { code: 'VALIDATION_ERROR', message: 'counterpartyInstitutionId required' },
+      };
+    }
+    if (cp === rec.institutionId.toUpperCase()) {
+      return {
+        statusCode: 400,
+        body: { code: 'VALIDATION_ERROR', message: 'cannot invite owner as counterparty' },
+      };
+    }
+    if (!isAllowlisted(cp)) {
+      return {
+        statusCode: 400,
+        body: {
+          code: 'VALIDATION_ERROR',
+          message: `counterparty not allowlisted: ${cp}`,
+        },
+      };
+    }
+    const list = new Set((rec.counterpartyIds ?? []).map((x) => x.toUpperCase()));
+    list.add(cp);
+    rec.counterpartyIds = [...list];
+    rec.updatedAt = new Date().toISOString();
+    this.persist();
+    return {
+      statusCode: 200,
+      body: {
+        processId: rec.processId,
+        institutionId: rec.institutionId,
+        counterpartyIds: rec.counterpartyIds,
+        message: 'counterparty invited — they can open this process after login',
+      },
+    };
+  }
+
+  attachFiatEvidence(
+    processId: string,
+    item: {
+      provider: string;
+      reference: string;
+      status: string;
+      amount?: string;
+      currency?: string;
+    },
+  ): CreateResult {
+    const rec = this.byId.get(processId);
+    if (!rec) {
+      return {
+        statusCode: 404,
+        body: { code: 'NOT_FOUND', message: `process not found: ${processId}` },
+      };
+    }
+    const entry = {
+      provider: item.provider.trim() || 'sandbox-bank',
+      reference: item.reference.trim(),
+      status: item.status.trim() || 'settled',
+      amount: item.amount?.trim(),
+      currency: item.currency?.trim()?.toUpperCase(),
+      receivedAt: new Date().toISOString(),
+    };
+    if (!entry.reference) {
+      return {
+        statusCode: 400,
+        body: { code: 'VALIDATION_ERROR', message: 'reference required' },
+      };
+    }
+    rec.fiatEvidence = [...(rec.fiatEvidence ?? []), entry];
+    rec.updatedAt = new Date().toISOString();
+    this.persist();
+    return {
+      statusCode: 200,
+      body: {
+        processId: rec.processId,
+        fiatEvidence: rec.fiatEvidence,
+        message:
+          'fiat evidence attached on edge (sandbox) — not PoT, not mint, not SoT',
+      },
+    };
+  }
+
+  listAllEdge(opts?: { limit?: number }): ProcessRecord[] {
+    let rows = [...this.byId.values()].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    );
+    if (opts?.limit && opts.limit > 0) rows = rows.slice(0, opts.limit);
+    return rows;
+  }
+
+  /** Dashboard KPIs for the actor (edge-tracked only). */
+  statsForInstitution(institutionId: string, role = 'institution'): {
     institutionId: string;
+    role: string;
     total: number;
     byStatus: Record<string, number>;
     lastSubmittedAt: string | null;
     submittedToCore: number;
     awaitingCore: number;
   } {
-    const rows = this.listForInstitution(institutionId);
+    const rows = this.listForActor(institutionId, role);
     const byStatus: Record<string, number> = {};
     for (const r of rows) {
       byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
     }
     return {
       institutionId: institutionId.toUpperCase(),
+      role,
       total: rows.length,
       byStatus,
       lastSubmittedAt: rows[0]?.createdAt ?? null,
@@ -395,8 +568,12 @@ export class ProcessesService {
     processId: string,
     institutionId: string | undefined,
     institutionToken?: string,
+    role = 'institution',
   ): Promise<CreateResult> {
-    const full = await this.get(processId, institutionId, institutionToken);
+    const full =
+      institutionId != null && institutionId !== ''
+        ? await this.getWithRole(processId, institutionId, role, institutionToken)
+        : await this.get(processId, institutionId, institutionToken);
     if (full.statusCode >= 400) return full;
     const b = full.body;
     const edge = b.edge as Record<string, unknown> | undefined;
@@ -528,18 +705,24 @@ export class ProcessesService {
     processId: string,
     institutionId: string,
     holderWalletRaw: string,
+    role = 'institution',
   ): CreateResult {
-    const rec = this.byId.get(processId);
-    if (!rec) {
-      return {
-        statusCode: 404,
-        body: { code: 'NOT_FOUND', message: `process not found on edge: ${processId}` },
-      };
+    const access = this.assertAccess(processId, institutionId, role);
+    if (!access.ok) {
+      return { statusCode: access.statusCode, body: access.body };
     }
-    if (rec.institutionId.toUpperCase() !== institutionId.toUpperCase()) {
+    const rec = access.rec;
+    const r = (role || 'institution').toLowerCase();
+    const isOwner = rec.institutionId.toUpperCase() === institutionId.toUpperCase();
+    const isHolder =
+      r === 'holder' && rec.holderId.toUpperCase() === institutionId.toUpperCase();
+    if (r === 'counterparty' || (!isOwner && !isHolder && r !== 'operator')) {
       return {
         statusCode: 403,
-        body: { code: 'FORBIDDEN', message: 'process belongs to another institution' },
+        body: {
+          code: 'FORBIDDEN',
+          message: 'only owner, holder, or operator may bind wallet',
+        },
       };
     }
     const wallet = holderWalletRaw.trim();
@@ -639,13 +822,86 @@ export class ProcessesService {
         404,
       );
     }
-    if (institutionId && rec.institutionId.toUpperCase() !== institutionId.toUpperCase()) {
+    // institutionId-only check kept for callers without role; prefer getWithRole
+    if (
+      institutionId &&
+      rec.institutionId.toUpperCase() !== institutionId.toUpperCase() &&
+      !(rec.counterpartyIds ?? [])
+        .map((x) => x.toUpperCase())
+        .includes(institutionId.toUpperCase()) &&
+      rec.holderId.toUpperCase() !== institutionId.toUpperCase()
+    ) {
       return this.error({ code: 'FORBIDDEN', message: 'institution mismatch' }, 403);
     }
     return {
       statusCode: 200,
       body: this.enrichProgress({ ...this.toStatus(rec), source: 'edge' }),
     };
+  }
+
+  async getWithRole(
+    processId: string,
+    institutionId: string,
+    role: string,
+    institutionToken?: string,
+  ): Promise<CreateResult> {
+    const access = this.assertAccess(processId, institutionId, role);
+    if (!access.ok) {
+      return { statusCode: access.statusCode, body: access.body };
+    }
+    // Access already enforced. Use owner id for Core token path (counterparties/ops may lack owner token).
+    const ownerId = access.rec.institutionId;
+    const tokenForCore =
+      access.rec.institutionId.toUpperCase() === institutionId.toUpperCase()
+        ? institutionToken
+        : undefined;
+    const full = await this.get(processId, ownerId, tokenForCore);
+    if (full.statusCode >= 400) {
+      // Still return edge view if Core missing
+      return {
+        statusCode: 200,
+        body: this.enrichProgress({
+          ...this.toStatus(access.rec),
+          source: 'edge',
+          coreError: full.body,
+          access: {
+            actorInstitutionId: institutionId.toUpperCase(),
+            role,
+            owner: ownerId,
+            counterpartyIds: access.rec.counterpartyIds ?? [],
+            relation: this.relationLabel(access.rec, institutionId, role),
+          },
+        }),
+      };
+    }
+    return {
+      statusCode: 200,
+      body: {
+        ...full.body,
+        access: {
+          actorInstitutionId: institutionId.toUpperCase(),
+          role,
+          owner: ownerId,
+          counterpartyIds: access.rec.counterpartyIds ?? [],
+          relation: this.relationLabel(access.rec, institutionId, role),
+        },
+      },
+    };
+  }
+
+  private relationLabel(
+    rec: ProcessRecord,
+    institutionId: string,
+    role: string,
+  ): string {
+    const inst = institutionId.toUpperCase();
+    if ((role || '').toLowerCase() === 'operator') return 'operator';
+    if (rec.institutionId.toUpperCase() === inst) return 'owner';
+    if ((rec.counterpartyIds ?? []).map((x) => x.toUpperCase()).includes(inst)) {
+      return 'counterparty';
+    }
+    if (rec.holderId.toUpperCase() === inst) return 'holder';
+    return 'viewer';
   }
 
   /**
@@ -860,6 +1116,8 @@ export class ProcessesService {
       holderId: rec.holderId,
       assetId: rec.assetId,
       holderWallet: rec.holderWallet ?? null,
+      counterpartyIds: rec.counterpartyIds ?? [],
+      fiatEvidence: rec.fiatEvidence ?? [],
       hasQualifiedSignature: rec.hasQualifiedSignature,
       documentPackageHash: rec.documentPackageHash,
       idempotencyKey: rec.idempotencyKey,

@@ -58,6 +58,16 @@ export interface AttachDocumentsBody {
   documentCount?: number;
 }
 
+/** Fiat/bank sandbox evidence on edge (not SoT, not mint). */
+export interface FiatEvidenceItem {
+  provider: string;
+  reference: string;
+  status: string;
+  amount?: string;
+  currency?: string;
+  receivedAt: string;
+}
+
 export interface ProcessRecord {
   processId: string;
   institutionId: string;
@@ -71,6 +81,13 @@ export interface ProcessRecord {
   assetId?: string;
   /** Optional EVM address for wallet-compatible certificate / adapters */
   holderWallet?: string;
+  /**
+   * Two-sided pilot: other allowlisted institutions invited onto this process.
+   * Owner remains institutionId; counterparties get read (and limited act) access.
+   */
+  counterpartyIds?: string[];
+  /** Bank/PSP sandbox evidence attachments (phase F local). */
+  fiatEvidence?: FiatEvidenceItem[];
   hasQualifiedSignature: boolean;
   documentPackageHash: string;
   idempotencyKey: string;

@@ -34,7 +34,7 @@ export class ProcessesController {
   @Get('stats')
   stats(@Headers('x-session-id') sessionId: string | undefined) {
     const s = this.requireSession(sessionId);
-    return this.processes.statsForInstitution(s.institutionId);
+    return this.processes.statsForInstitution(s.institutionId, s.role ?? 'institution');
   }
 
   @Get()
@@ -45,12 +45,13 @@ export class ProcessesController {
   ) {
     const s = this.requireSession(sessionId);
     const limit = limitRaw ? Number(limitRaw) : undefined;
-    const items = this.processes.listForInstitution(s.institutionId, {
+    const items = this.processes.listForActor(s.institutionId, s.role ?? 'institution', {
       status,
       limit: Number.isFinite(limit) ? limit : undefined,
     });
     return {
       institutionId: s.institutionId,
+      role: s.role ?? 'institution',
       count: items.length,
       processes: items.map((r) => ({
         processId: r.processId,
@@ -58,6 +59,8 @@ export class ProcessesController {
         processType: r.processType,
         valuation: r.valuation,
         holderId: r.holderId,
+        institutionId: r.institutionId,
+        counterpartyIds: r.counterpartyIds ?? [],
         documentPackageHash: r.documentPackageHash,
         createdAt: r.createdAt,
         updatedAt: r.updatedAt,
@@ -73,7 +76,16 @@ export class ProcessesController {
     @Headers('x-institution-id') institutionIdHeader: string | undefined,
   ) {
     const s = this.requireSession(sessionId);
-    // Session institution wins over header spoofing
+    const role = s.role ?? 'institution';
+    if (role === 'counterparty' || role === 'holder') {
+      throw new HttpException(
+        {
+          code: 'FORBIDDEN',
+          message: 'counterparty/holder cannot create processes — issuer institution only',
+        },
+        403,
+      );
+    }
     if (
       institutionIdHeader &&
       institutionIdHeader.toUpperCase() !== s.institutionId
@@ -101,7 +113,12 @@ export class ProcessesController {
     @Headers('x-session-id') sessionId: string | undefined,
   ) {
     const s = this.requireSession(sessionId);
-    const result = await this.processes.get(processId, s.institutionId, s.token);
+    const result = await this.processes.getWithRole(
+      processId,
+      s.institutionId,
+      s.role ?? 'institution',
+      s.token,
+    );
     if (result.statusCode >= 400) {
       throw new HttpException(result.body, result.statusCode);
     }
@@ -109,7 +126,7 @@ export class ProcessesController {
   }
 
   /**
-   * Digitization certificate — what the institution downloads after submission.
+   * Digitization certificate — owner, counterparty, holder, operator (read).
    */
   @Get(':processId/certificate')
   async certificate(
@@ -121,6 +138,7 @@ export class ProcessesController {
       processId,
       s.institutionId,
       s.token,
+      s.role ?? 'institution',
     );
     if (result.statusCode >= 400) {
       throw new HttpException(result.body, result.statusCode);
@@ -129,7 +147,30 @@ export class ProcessesController {
   }
 
   /**
-   * Bind EVM wallet (0x…) to process for certificate / wallet-compat QR (representation only).
+   * Two-sided: invite allowlisted counterparty institution onto process.
+   */
+  @Post(':processId/invite-counterparty')
+  inviteCounterparty(
+    @Param('processId') processId: string,
+    @Body() body: { counterpartyInstitutionId?: string },
+    @Headers('x-session-id') sessionId: string | undefined,
+  ) {
+    const s = this.requireSession(sessionId);
+    const result = this.processes.inviteCounterparty(
+      processId,
+      s.institutionId,
+      s.role ?? 'institution',
+      body.counterpartyInstitutionId ?? '',
+      (id) => this.auth.isAllowlistedInstitution(id),
+    );
+    if (result.statusCode >= 400) {
+      throw new HttpException(result.body, result.statusCode);
+    }
+    return result.body;
+  }
+
+  /**
+   * Bind EVM wallet (0x…) — owner, holder, or operator.
    */
   @Post(':processId/bind-wallet')
   bindWallet(
@@ -142,6 +183,7 @@ export class ProcessesController {
       processId,
       s.institutionId,
       body.holderWallet ?? '',
+      s.role ?? 'institution',
     );
     if (result.statusCode >= 400) {
       throw new HttpException(result.body, result.statusCode);
@@ -157,6 +199,13 @@ export class ProcessesController {
     @Headers('x-session-id') sessionId: string | undefined,
   ) {
     const s = this.requireSession(sessionId);
+    const role = s.role ?? 'institution';
+    if (role === 'counterparty' || role === 'holder') {
+      throw new HttpException(
+        { code: 'FORBIDDEN', message: 'only process owner may attach documents' },
+        403,
+      );
+    }
     const result = await this.processes.attachDocuments(
       processId,
       body,
@@ -176,6 +225,13 @@ export class ProcessesController {
     @Headers('x-session-id') sessionId: string | undefined,
   ) {
     const s = this.requireSession(sessionId);
+    const role = s.role ?? 'institution';
+    if (role === 'counterparty' || role === 'holder') {
+      throw new HttpException(
+        { code: 'FORBIDDEN', message: 'only process owner may retry hand-off' },
+        403,
+      );
+    }
     const result = await this.processes.retryHandoff(
       processId,
       s.institutionId,

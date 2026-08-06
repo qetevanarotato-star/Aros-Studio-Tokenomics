@@ -67,9 +67,21 @@ export function AppHeader() {
           {session ? (
             <>
               <Link href="/dashboard">{t('nav.cabinet')}</Link>
-              <Link href="/tokenization">{t('nav.tokenization')}</Link>
+              {(session.role === 'institution' ||
+                session.role === 'operator' ||
+                !session.role) && (
+                <Link href="/tokenization">{t('nav.tokenization')}</Link>
+              )}
               <Link href="/assets">{t('nav.assets')}</Link>
-              <span className="pill">{session.institutionId}</span>
+              {session.role === 'operator' && (
+                <Link href="/ops">{t('nav.ops')}</Link>
+              )}
+              <span className="pill">
+                {session.institutionId}
+                {session.role && session.role !== 'institution'
+                  ? ` · ${session.role}`
+                  : ''}
+              </span>
               <button type="button" className="linkish" onClick={logout}>
                 {t('nav.logout')}
               </button>

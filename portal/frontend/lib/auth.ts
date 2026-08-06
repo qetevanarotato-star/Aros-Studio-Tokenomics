@@ -1,8 +1,12 @@
+export type PortalRole = 'institution' | 'counterparty' | 'holder' | 'operator';
+
 export interface PortalSession {
   sessionId: string;
   institutionId: string;
   displayName: string;
   expiresAt: string;
+  /** B/D roles; default institution for older sessions */
+  role?: PortalRole;
 }
 
 const KEY = 'ast_portal_session';

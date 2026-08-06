@@ -12,12 +12,17 @@ import {
 } from './mtls-oidc';
 import { RedisSessionStore } from '../../common/redis-session-store';
 
+/** Portal edge role (two-sided + ops). Default institution. */
+export type PortalRole = 'institution' | 'counterparty' | 'holder' | 'operator';
+
 export interface InstitutionAccount {
   institutionId: string;
   displayName: string;
   /** Shared secret (v1). Prod target: mTLS / OIDC + secrets store. */
   token: string;
   allowlisted: boolean;
+  /** B/D: institution (default) | counterparty | holder | operator */
+  role?: PortalRole;
 }
 
 export interface Session {
@@ -25,6 +30,7 @@ export interface Session {
   institutionId: string;
   displayName: string;
   token: string;
+  role: PortalRole;
   createdAt: string;
   expiresAt: string;
 }
@@ -221,6 +227,7 @@ export class AuthService {
       institutionId: acc.institutionId,
       displayName: acc.displayName,
       token: acc.token,
+      role: normalizeRole(acc.role),
       createdAt: new Date(now).toISOString(),
       expiresAt: new Date(now + SESSION_TTL_MS).toISOString(),
     };
@@ -247,19 +254,45 @@ export class AuthService {
       void this.redis?.del(sessionId).catch(() => undefined);
       return null;
     }
+    if (!s.role) s.role = 'institution';
     return s;
   }
 
-  listInstitutionsPublic(): Array<{ institutionId: string; displayName: string }> {
+  listInstitutionsPublic(): Array<{
+    institutionId: string;
+    displayName: string;
+    role: PortalRole;
+  }> {
     return [...this.accounts.values()]
       .filter((a) => a.allowlisted)
-      .map((a) => ({ institutionId: a.institutionId, displayName: a.displayName }))
+      .map((a) => ({
+        institutionId: a.institutionId,
+        displayName: a.displayName,
+        role: normalizeRole(a.role),
+      }))
       .sort((a, b) => a.institutionId.localeCompare(b.institutionId));
+  }
+
+  getAccount(institutionId: string): InstitutionAccount | undefined {
+    return this.accounts.get(institutionId.trim().toUpperCase());
+  }
+
+  isAllowlistedInstitution(institutionId: string): boolean {
+    const a = this.getAccount(institutionId);
+    return Boolean(a?.allowlisted);
   }
 
   configuredCount(): number {
     return this.accounts.size;
   }
+}
+
+function normalizeRole(role: unknown): PortalRole {
+  const r = String(role ?? 'institution').toLowerCase();
+  if (r === 'operator' || r === 'ops') return 'operator';
+  if (r === 'counterparty' || r === 'counter') return 'counterparty';
+  if (r === 'holder') return 'holder';
+  return 'institution';
 }
 
 function tokensEqual(a: string, b: string): boolean {
@@ -304,18 +337,42 @@ export function loadAccounts(): InstitutionAccount[] {
       displayName: 'Pilot Institution',
       token: process.env.AST_PILOT_SALT ?? 'pilot',
       allowlisted: true,
+      role: 'institution',
+    },
+    {
+      institutionId: 'COUNTER',
+      displayName: 'Counterparty Pilot',
+      token: process.env.AST_COUNTER_SALT ?? 'counter',
+      allowlisted: true,
+      role: 'counterparty',
+    },
+    {
+      institutionId: 'HOLDER1',
+      displayName: 'Holder Pilot',
+      token: process.env.AST_HOLDER_SALT ?? 'holder',
+      allowlisted: true,
+      role: 'holder',
+    },
+    {
+      institutionId: 'OPS',
+      displayName: 'AST Operator',
+      token: process.env.AST_OPS_SALT ?? 'ops',
+      allowlisted: true,
+      role: 'operator',
     },
     {
       institutionId: 'DEMO',
       displayName: 'Demo Institution',
       token: process.env.AST_INSTITUTION_TOKEN ?? 'demo-institution-token',
       allowlisted: true,
+      role: 'institution',
     },
     {
       institutionId: 'ACME',
       displayName: 'ACME Capital Markets',
       token: process.env.AST_ACME_TOKEN ?? 'acme-institution-token',
       allowlisted: true,
+      role: 'institution',
     },
   ];
 }
@@ -331,6 +388,7 @@ export function parseAccountsJson(json: string | undefined | null): InstitutionA
         displayName: String(a.displayName ?? a.institutionId ?? 'Institution'),
         token: String(a.token ?? ''),
         allowlisted: a.allowlisted !== false,
+        role: normalizeRole((a as { role?: string }).role),
       }))
       .filter((a) => a.institutionId && a.token);
   } catch {
