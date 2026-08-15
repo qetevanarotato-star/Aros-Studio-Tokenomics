@@ -11,19 +11,15 @@ type StackHealth = {
   detail?: string;
 };
 
-/** Quick pilot entry (English): login pilot · salt pilot */
-const QUICK_LOGIN = 'pilot';
-const QUICK_SALT = 'pilot';
-
 export default function LoginPage() {
   const router = useRouter();
   const { t } = useI18n();
-  const [login, setLogin] = useState(QUICK_LOGIN);
-  const [salt, setSalt] = useState(QUICK_SALT);
+  const [login, setLogin] = useState('');
+  const [salt, setSalt] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [institutions, setInstitutions] = useState<
-    Array<{ institutionId: string; displayName: string }>
+    Array<{ institutionId: string; displayName: string; role?: string }>
   >([]);
   const [stack, setStack] = useState<StackHealth>({
     edge: 'checking',
@@ -38,7 +34,20 @@ export default function LoginPage() {
     void probeStack();
     void fetch(`${apiBase()}/v1/auth/institutions`)
       .then((r) => r.json())
-      .then((d) => setInstitutions(d.institutions ?? []))
+      .then((d) => {
+        const list = (d.institutions ?? []) as Array<{
+          institutionId: string;
+          displayName: string;
+          role?: string;
+        }>;
+        setInstitutions(list);
+        // Prefer first non-operator institution as login id (salt still from credentials file)
+        const preferred =
+          list.find((i) => (i.role ?? 'institution') !== 'operator') ?? list[0];
+        if (preferred && !login) {
+          setLogin(preferred.institutionId);
+        }
+      })
       .catch(() => setInstitutions([]));
   }, [router]);
 
@@ -223,7 +232,7 @@ export default function LoginPage() {
           onChange={(e) => setSalt(e.target.value)}
           required
           autoComplete="off"
-          placeholder="pilot"
+          placeholder="bog"
           spellCheck={false}
         />
 
@@ -239,11 +248,13 @@ export default function LoginPage() {
       </form>
 
       <div className="callout" style={{ marginBottom: 0, marginTop: '1.1rem' }}>
-        <strong>{t('login.hint')}</strong>
+        <strong>Простой вход</strong>
         <br />
-        {t('login.login')}: <code>pilot</code>
+        Login <code>BOG</code> · salt <code>bog</code>
         <br />
-        {t('login.salt')}: <code>pilot</code>
+        Login <code>MERCURY</code> · salt <code>mercury</code>
+        <br />
+        Login <code>OPS</code> · salt <code>ops</code> (панель)
       </div>
     </div>
   );

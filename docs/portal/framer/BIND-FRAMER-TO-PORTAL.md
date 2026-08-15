@@ -5,9 +5,14 @@ Full portal process runs inside **AstPortalFrame** (`?embed=1`).
 
 ## Live URL (session)
 
+Quick tunnels **change every restart**. Always read the current file (do not trust old links in this doc):
+
+```bash
+cat .home-run/public-url.txt      # UI for AstPortalFrame portalBase
+cat .home-run/edge-public-url.txt # API only (pure Framer components)
 ```
-https://ahead-fibre-adjacent-rock.trycloudflare.com
-```
+
+Set that URL on each AstPortal* instance in Framer, then **Publish**.
 
 ## Pages
 

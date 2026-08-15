@@ -93,7 +93,7 @@ addPropertyControls(AstPortalFrame, {
     portalBase: {
         type: ControlType.String,
         title: "Portal URL",
-        defaultValue: "https://ahead-fibre-adjacent-rock.trycloudflare.com",
+        defaultValue: "",
     },
     path: {
         type: ControlType.Enum,
