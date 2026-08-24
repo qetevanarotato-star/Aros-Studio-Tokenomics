@@ -385,7 +385,7 @@ export function verifyX509Detached(
   }
 
   const chain = resolveTrustAnchor(leaf, intermediates, trustAnchors, allowSelfSigned(env));
-  if ('ok' in chain && chain.ok === false) return chain;
+  if ('ok' in chain) return chain;
 
   const sigErr = verifyDetachedSignature(leaf, hash, input.signatureBase64.trim());
   if (sigErr) return sigErr;
