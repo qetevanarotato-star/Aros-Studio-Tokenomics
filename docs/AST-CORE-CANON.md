@@ -146,6 +146,7 @@ Structure:
 - Maximally mobile and compatible.
 - Fully preserves the AST canon.
 - All critical operations (mint, burn, transfer, revaluation) pass through NodeChain + PoT.
+- **The asset token is permanent** (Amendment 1). It does not extinguish when a process closes. The process may time out; the token of rights does not. Supply still changes only via confirmed revaluation (mint on increase, burn on decrease). Distinct from ArosCoin (payment for executed work).
 
 ### 6.4. Mechanism of token value change
 
@@ -339,6 +340,15 @@ These values are ratified for implementation defaults; changing them is a config
 | Compensation after `verified = 1` | **not compensatable** |
 | Mint succeeded, settlement failed | **retry settlement** (do not burn-compensate mint) |
 | Oracle Gateway failure | **fail-closed** (process expired) |
+
+## Amendment 1 — Asset token is permanent (2026-08-31)
+
+**Status:** Ratified by product owner (Ketevan Arevadze), working session 2026-08-31.  
+**Scope:** AST Token Protocol (asset token = digital carrier of rights). Not ArosCoin.
+
+The asset token is **permanent**. After primary tokenization it continues to live and change with the real asset. Closing or timing out a process does **not** extinguish the token. NodeChain remains the lasting registry of rights. Extinguishing (“гаснущий”) is rejected.
+
+ArosCoin remains payment for proven executed work and is not this token.
 
 ## XIII. Closing
 

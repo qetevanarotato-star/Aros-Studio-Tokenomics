@@ -9,6 +9,7 @@ Institutional process token-economy: **NodeChain** is the sole source-of-truth j
 | Area | State |
 |------|--------|
 | Canon | `docs/AST-CORE-CANON.md` |
+| Agent results | `docs/agent-work/` |
 | Core | Full economic path (NodeChain → PoT → mint → commission → reserve) |
 | Portal | **Institutional client edge** (`portal/`) — login, hash, submit, status |
 | Ops | Docker Compose + GHCR images |

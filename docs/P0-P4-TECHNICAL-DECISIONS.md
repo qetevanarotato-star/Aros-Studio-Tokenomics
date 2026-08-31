@@ -76,6 +76,12 @@ This file is the **decision register** used by build schedule Phase 0+. It does 
 - Heartbeats; min uptime default 95%; geo configurable.  
 - Payment in ARO post-factum; multi-node per institution; 1 vote per cert.
 
+### asset token (rights)
+
+- **Permanent** (ratified 2026-08-31). Does not extinguish at process close.  
+- Distinct from ArosCoin. Process timeout ≠ token expiry.  
+- Supply change only via PoT-gated revaluation mint/burn.
+
 ### emission
 
 - Institutional valuation + ΔValue (replaces α·TV+β·U+γ).  
