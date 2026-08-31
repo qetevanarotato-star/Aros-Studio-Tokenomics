@@ -270,7 +270,21 @@ export class TokenService {
     holderId: string;
     amount: string;
     claimId?: string;
+    /** If set, must be a revaluation/partial-release reason — never process close. */
+    reason?: string;
   }): Promise<BurnResult> {
+    const reason = (input.reason ?? '').toLowerCase();
+    if (
+      reason.includes('close') ||
+      reason.includes('expir') ||
+      reason.includes('extinguish') ||
+      reason.includes('гасну')
+    ) {
+      throw new TokenError(
+        TokenErrorCode.PROCESS_CLOSE_EXTINGUISH,
+        'asset token is permanent: process close/expiry must not burn',
+      );
+    }
     this.assertProcess(input.processId);
     this.assertHolder(input.holderId);
     await this.ensureHydrated();

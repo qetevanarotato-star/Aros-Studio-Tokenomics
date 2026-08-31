@@ -9,6 +9,7 @@ SCRIPTS=(
   canon-gate.sh
   ast-philosophy-guard.sh
   token-protocol-guard.sh
+  asset-token-permanent-guard.sh
   no-bypass-pot-nodechain.sh
   pot-criteria-guard.sh
   no-all-seeing-eye-executive-guard.sh

@@ -240,7 +240,13 @@ export class ProcessService {
       clientRecordId: `process-close:${processId}`,
       recordType: 'process_close',
       processId,
-      payload: { stage: 'closed', from, atUtc: at },
+      payload: {
+        stage: 'closed',
+        from,
+        atUtc: at,
+        // Amendment 1: process end ≠ token death
+        assetTokenExtinguished: false,
+      },
       writerId: 'orchestrator',
       writerRole: 'orchestrator',
     });

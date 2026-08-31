@@ -184,6 +184,52 @@ describe('TokenService (layer 05 deep)', () => {
     expect(token2.totalSupply()).toBe('7.000000000');
   });
 
+  it('refuses burn whose reason is process close / extinguish', async () => {
+    const { token, nc } = await setup();
+    const processId = 'AST-DEMO-20260831-noburn';
+    const h = await journalOkToEmit(nc, processId);
+    await token.mintAfterPot({
+      processId,
+      holderId: 'h',
+      amount: '10.000000000',
+      potVerified: 1,
+      potLedgerHeight: h,
+    });
+    await expect(
+      token.burn({
+        processId,
+        holderId: 'h',
+        amount: '10.000000000',
+        reason: 'process_close',
+      }),
+    ).rejects.toMatchObject({ code: TokenErrorCode.PROCESS_CLOSE_EXTINGUISH });
+    expect(token.balanceOf('h')).toBe('10.000000000');
+  });
+
+  it('close of process leaves minted balance after hydrate', async () => {
+    const { token, nc } = await setup();
+    const processId = 'AST-DEMO-20260831-keep';
+    const h = await journalOkToEmit(nc, processId);
+    await token.mintAfterPot({
+      processId,
+      holderId: 'h',
+      amount: '4.000000000',
+      potVerified: 1,
+      potLedgerHeight: h,
+    });
+    await nc.append({
+      clientRecordId: `process-close:${processId}`,
+      recordType: 'process_close',
+      processId,
+      payload: { stage: 'closed', assetTokenExtinguished: false },
+      writerId: 'orchestrator',
+      writerRole: 'orchestrator',
+    });
+    const token2 = new TokenService(nc);
+    await token2.hydrateFromJournal();
+    expect(token2.balanceOf('h')).toBe('4.000000000');
+  });
+
   it('burns and journals burn_fact', async () => {
     const { token, nc } = await setup();
     const processId = 'AST-DEMO-20260719-mb';

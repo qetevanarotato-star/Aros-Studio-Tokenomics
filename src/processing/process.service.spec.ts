@@ -70,6 +70,21 @@ describe('ProcessService (layer 03 deep)', () => {
     );
   });
 
+  it('process close does not write burn_fact (asset token permanent)', async () => {
+    const { nc, proc } = await setup();
+    const pid = 'AST-DEMO-20260831-perm1';
+    await openPrimary(proc, pid);
+    await proc.markPotDone(pid, { potLedgerHeight: 3 });
+    await proc.markSettled(pid, { note: 'mint done' });
+    await proc.close(pid);
+    const rows = await nc.listByProcessId(pid);
+    expect(rows.some((r) => r.recordType === 'burn_fact')).toBe(false);
+    const close = rows.find((r) => r.recordType === 'process_close');
+    expect(close?.payload).toEqual(
+      expect.objectContaining({ assetTokenExtinguished: false }),
+    );
+  });
+
   it('allows close shortcut from pot_done (no settle)', async () => {
     const { proc } = await setup();
     await openPrimary(proc, 'AST-DEMO-20260719-proc2');
