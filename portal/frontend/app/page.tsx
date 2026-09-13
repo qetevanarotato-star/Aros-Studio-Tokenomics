@@ -11,8 +11,6 @@ export default function HomePage() {
     <div className="canva-home">
       <header className="canva-nav">
         <Link href="/nodechain">NodeChain</Link>
-        <Link href="/system">Solutions</Link>
-        <Link href="/about">About us</Link>
         <Link href="/login" className="canva-nav-login">
           Login
         </Link>
@@ -40,9 +38,6 @@ export default function HomePage() {
         </p>
 
         <div className="canva-ctas">
-          <Link href="/system" className="canva-cta">
-            What AST can do?
-          </Link>
           <Link href="/nodechain" className="canva-cta">
             NodeChain journal
           </Link>

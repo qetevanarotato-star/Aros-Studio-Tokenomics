@@ -62,8 +62,6 @@ export function AppHeader() {
         <LanguageSwitcher />
         <nav className="nav" aria-label="Main">
           <Link href="/nodechain">{t('nav.nodechain')}</Link>
-          <Link href="/system">{t('nav.system')}</Link>
-          <Link href="/about">{t('nav.about')}</Link>
           {session ? (
             <>
               <Link href="/dashboard">{t('nav.cabinet')}</Link>

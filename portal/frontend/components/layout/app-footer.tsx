@@ -28,11 +28,9 @@ export function AppFooter() {
         <span>{t('footer.tagline')}</span>
       </span>
       <span>
-        <Link href="/explore">{t('nav.explore')}</Link>
-        {' · '}
         <Link href="/nodechain">{t('nav.nodechain')}</Link>
         {' · '}
-        <Link href="/system">{t('nav.system')}</Link>
+        <Link href="/login">{t('nav.login')}</Link>
         {' · '}
         {t('footer.sot')}
       </span>
