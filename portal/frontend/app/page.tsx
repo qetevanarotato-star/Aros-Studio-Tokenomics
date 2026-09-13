@@ -1,50 +1,40 @@
 'use client';
 
 import Link from 'next/link';
+import { useI18n } from '../lib/i18n/context';
 
 /**
- * Home = Canva mock 1:1 (EN copy from design).
- * No language switcher, no doors, no residual portal chrome.
+ * Home — same dark high-tech shell as cabinet / NodeChain.
+ * CTAs: NodeChain + Login only. Language lives in the shared header.
  */
 export default function HomePage() {
+  const { t } = useI18n();
+
   return (
-    <div className="canva-home">
-      <header className="canva-nav">
-        <Link href="/nodechain">NodeChain</Link>
-        <Link href="/login" className="canva-nav-login">
-          Login
+    <div className="home-stage">
+      <img
+        className="home-logo reveal"
+        src="/brand/ast-logo-light.png"
+        alt="a. Aros Studio Tokenomics"
+        width={520}
+        height={280}
+      />
+
+      <h1 className="home-h1 reveal d1">{t('home.h1')}</h1>
+
+      <p className="home-lead reveal d2">
+        {t('home.lead.before')}
+        <strong>NodeChain</strong>
+        {t('home.lead.after')}
+      </p>
+
+      <div className="home-ctas reveal d3">
+        <Link href="/nodechain" className="btn">
+          {t('home.cta.nodechain')}
         </Link>
-      </header>
-
-      <div className="canva-body">
-        <img
-          className="canva-logo"
-          src="/brand/ast-logo-dark.png"
-          alt="a. Aros Studio Tokenomics"
-          width={520}
-          height={280}
-        />
-
-        <h1 className="canva-h1">
-          Institutional valuation,
-          <br />
-          recorded after confirmed work
-        </h1>
-
-        <p className="canva-lead">
-          AST records valuations already confirmed by institutions. Digital units appear only after
-          Proof of Transaction. <strong>NodeChain</strong> is the source of truth. This site is
-          public lookup and the institution edge - it never mints.
-        </p>
-
-        <div className="canva-ctas">
-          <Link href="/nodechain" className="canva-cta">
-            NodeChain journal
-          </Link>
-          <Link href="/login" className="canva-cta">
-            Institution sign-in
-          </Link>
-        </div>
+        <Link href="/login" className="btn secondary">
+          {t('home.cta.cabinet')}
+        </Link>
       </div>
     </div>
   );

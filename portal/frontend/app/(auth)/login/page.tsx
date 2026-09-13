@@ -139,8 +139,8 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="card" style={{ maxWidth: 480, margin: '1.5rem auto' }}>
-      <p className="muted" style={{ marginTop: 0 }}>
+    <div className="card login-card reveal">
+      <p className="eyebrow" style={{ marginTop: 0 }}>
         {t('login.stack.edge')}: {stackLabel(stack.edge)} · {t('login.stack.core')}:{' '}
         {stackLabel(stack.core)}
       </p>

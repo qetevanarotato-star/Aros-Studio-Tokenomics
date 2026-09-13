@@ -85,7 +85,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <div className="card">
+      <div className="card reveal">
         <div
           style={{
             display: 'flex',

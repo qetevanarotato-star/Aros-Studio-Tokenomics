@@ -1,17 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { useI18n } from '../../lib/i18n/context';
 
 export function AppFooter() {
   const { t } = useI18n();
-  const pathname = usePathname();
   const search = useSearchParams();
-  const isHome = pathname === '/';
   const isEmbed = search.get('embed') === '1';
 
-  if (isHome || isEmbed) {
+  if (isEmbed) {
     return null;
   }
 
@@ -20,7 +18,7 @@ export function AppFooter() {
       <span className="footer-brand">
         <img
           className="footer-logo"
-          src="/brand/ast-logo-dark.png"
+          src="/brand/ast-logo-light.png"
           alt="Aros Studio Tokenomics"
           width={140}
           height={40}

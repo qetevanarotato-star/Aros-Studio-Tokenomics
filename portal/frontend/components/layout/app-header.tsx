@@ -23,9 +23,9 @@ export function AppHeader() {
   const isEmbed = search.get('embed') === '1';
 
   useEffect(() => {
-    if (isHome || isEmbed) return;
+    if (isEmbed) return;
     setSession(loadSession());
-  }, [pathname, isHome, isEmbed]);
+  }, [pathname, isEmbed]);
 
   function logout() {
     const s = loadSession();
@@ -40,18 +40,17 @@ export function AppHeader() {
     router.push('/login');
   }
 
-  // Home owns its own nav (Canva layout) — global header off
-  if (isHome || isEmbed) {
+  if (isEmbed) {
     return null;
   }
 
   return (
-    <header className="topbar">
+    <header className={isHome ? 'topbar topbar-home' : 'topbar'}>
       <Link href="/" className="brand-link" aria-label="Aros Studio Tokenomics">
         <div className="brand">
           <img
             className="brand-logo"
-            src="/brand/ast-logo-dark.png"
+            src="/brand/ast-logo-light.png"
             alt="Aros Studio Tokenomics"
             width={280}
             height={80}

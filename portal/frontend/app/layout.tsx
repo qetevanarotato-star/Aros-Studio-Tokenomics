@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { Suspense } from 'react';
 import { Inter } from 'next/font/google';
 import '../styles/globals.css';
+import { NodeField } from '../components/fx/node-field';
+import { RevealRoot } from '../components/fx/reveal';
 import { AppHeader } from '../components/layout/app-header';
 import { AppFooter } from '../components/layout/app-footer';
 import { Providers } from '../components/providers';
@@ -35,6 +37,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
+          <NodeField />
+          <RevealRoot />
           <div className="shell">
             <Suspense fallback={null}>
               <AppHeader />

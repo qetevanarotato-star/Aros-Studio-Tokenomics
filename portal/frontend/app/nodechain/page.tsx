@@ -206,7 +206,7 @@ function NodechainPageInner() {
 
   return (
     <>
-      <section className="card hero nc-hero">
+      <section className="card hero nc-hero reveal">
         <p className="eyebrow">{t('nc.eyebrow')}</p>
         <h1>{t('nc.h1')}</h1>
         <p className="lead lead-wide">{t('nc.lead')}</p>
@@ -236,7 +236,7 @@ function NodechainPageInner() {
       )}
 
       {status && (
-        <div className="kpis kpis-public">
+        <div className="kpis kpis-public reveal">
           <div className="kpi">
             <div className="label">{t('nc.tip')}</div>
             <div className="value mono">#{tipH ?? '—'}</div>
